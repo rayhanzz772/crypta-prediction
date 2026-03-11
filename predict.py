@@ -7,19 +7,38 @@ scaler = joblib.load("model/feature_scaler.pkl")
 
 
 # =========================
+# Recursive Brute Force Score
+# =========================
+BRUTE_FORCE_TIERS = [
+    (3, 1),    # >= 3 attempts: +1
+    (5, 2),    # >= 5 attempts: +2 (cumulative: 3)
+    (8, 3),    # >= 8 attempts: +3 (cumulative: 6)
+    (12, 4),   # >= 12 attempts: +4 (cumulative: 10)
+    (20, 5),   # >= 20 attempts: +5 (cumulative: 15)
+]
+
+
+def recursive_brute_force_score(failed_attempts, depth=0):
+    if depth >= len(BRUTE_FORCE_TIERS):
+        return 0
+
+    threshold, points = BRUTE_FORCE_TIERS[depth]
+
+    if failed_attempts >= threshold:
+        return points + recursive_brute_force_score(failed_attempts, depth + 1)
+
+    return 0
+
+
+# =========================
 # Rule Based Score
 # =========================
 def calculate_rule_score(row):
 
     score = 0
 
-    # Failed attempts
-    if row["failed_attempts"] >= 8:
-        score += 3
-    elif row["failed_attempts"] >= 5:
-        score += 2
-    elif row["failed_attempts"] >= 3:
-        score += 1
+    # Failed attempts (recursive cumulative scoring)
+    score += recursive_brute_force_score(row["failed_attempts"])
 
     # Login dini hari
     if 0 <= row["login_hour"] <= 4:
@@ -77,7 +96,7 @@ def hybrid_score(ml_score_norm, rule_score):
     ML_WEIGHT = 0.7
     RULE_WEIGHT = 0.3
 
-    rule_norm = min(rule_score, 10) / 10
+    rule_norm = min(rule_score, 20) / 20
 
     final_score = ((1 - ml_score_norm) * ML_WEIGHT) + (rule_norm * RULE_WEIGHT)
 
