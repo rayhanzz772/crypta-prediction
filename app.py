@@ -3,6 +3,10 @@ from predict import predict_anomaly
 
 app = Flask(__name__)
 
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 @app.route("/predict", methods=["POST"])
 def predict():
 
