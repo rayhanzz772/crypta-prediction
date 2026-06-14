@@ -1,0 +1,13 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5010:5010"
+    environment:
+      PORT: 5010
+      GUNICORN_WORKERS: 1
+      GUNICORN_THREADS: 1
+      GUNICORN_TIMEOUT: 120
+    restart: unless-stopped
