@@ -108,16 +108,12 @@ def hybrid_score(ml_score_norm, rule_score):
 # =========================
 def final_risk(score):
 
-    if score < 0.35:
-        return "LOW"
+    if score >= 0.75: return "HIGH"
 
-    elif score < 0.55:
-        return "MEDIUM"
+    elif score >= 0.5: return "MEDIUM"
+    
+    else: return "LOW"
 
-    elif score < 0.75:
-        return "HIGH"
-
-    return "CRITICAL"
 
 
 # =========================
