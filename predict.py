@@ -1,9 +1,20 @@
+import logging
+from pathlib import Path
+
 import joblib
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_PATH = BASE_DIR / "model" / "isolation_forest_model.pkl"
+SCALER_PATH = BASE_DIR / "model" / "feature_scaler.pkl"
+
 # Load model dan scaler
-model = joblib.load("model/isolation_forest_model.pkl")
-scaler = joblib.load("model/feature_scaler.pkl")
+model = joblib.load(MODEL_PATH)
+scaler = joblib.load(SCALER_PATH)
+
+logger.info("loaded model=%s scaler=%s", MODEL_PATH, SCALER_PATH)
 
 
 # =========================
@@ -123,6 +134,8 @@ def predict_anomaly(features):
 
     row = features
 
+    logger.info("predict_anomaly input=%s", row)
+
     X = np.array([[
         row["login_hour"],
         row["day_of_week"],
@@ -155,6 +168,16 @@ def predict_anomaly(features):
 
     # Risk level
     risk_level = final_risk(final_score)
+
+    logger.info(
+        "predict_anomaly output status=%s risk_level=%s score=%.12f rule_score=%s ml_score=%.12f ml_score_norm=%.12f",
+        "ANOMALI" if ml_pred == -1 else "NORMAL",
+        risk_level,
+        final_score,
+        rule_score,
+        ml_score,
+        ml_score_norm,
+    )
 
     return {
         "status": "ANOMALI" if ml_pred == -1 else "NORMAL",
