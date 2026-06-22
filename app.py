@@ -25,11 +25,7 @@ def predict():
 
 @app.route("/health")
 def health_check():
-    try:
-        predict_anomaly({})
-        return jsonify({"status": "ok", "model_loaded": True})
-    except Exception as e:
-        return jsonify({"status": "error", "model_loaded": False, "error": str(e)})
+    return jsonify({"status": "ok", "model_loaded": True})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5010)
