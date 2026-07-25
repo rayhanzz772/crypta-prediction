@@ -3,7 +3,13 @@ import warnings
 from pathlib import Path
 
 import joblib
-import pandas as pd
+
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    import numpy as np
+    HAS_PANDAS = False
 
 # Suppress warnings from scikit-learn
 warnings.filterwarnings("ignore")
@@ -138,18 +144,32 @@ def predict_anomaly(features):
 
     row = features
 
-    X = pd.DataFrame([{
-        "login_hour": row["login_hour"],
-        "day_of_week": row["day_of_week"],
-        "session_duration_min": row["session_duration_min"],
-        "failed_attempts": row["failed_attempts"],
-        "device_change": int(row["device_change"]),
-        "ip_change": int(row["ip_change"]),
-        "geo_anomaly": int(row["geo_anomaly"]),
-        "access_count_10min": row["access_count_10min"],
-        "unique_endpoints_visited": row["unique_endpoints_visited"],
-        "vpn_used": int(row["vpn_used"])
-    }])
+    if HAS_PANDAS:
+        X = pd.DataFrame([{
+            "login_hour": row["login_hour"],
+            "day_of_week": row["day_of_week"],
+            "session_duration_min": row["session_duration_min"],
+            "failed_attempts": row["failed_attempts"],
+            "device_change": int(row["device_change"]),
+            "ip_change": int(row["ip_change"]),
+            "geo_anomaly": int(row["geo_anomaly"]),
+            "access_count_10min": row["access_count_10min"],
+            "unique_endpoints_visited": row["unique_endpoints_visited"],
+            "vpn_used": int(row["vpn_used"])
+        }])
+    else:
+        X = np.array([[
+            row["login_hour"],
+            row["day_of_week"],
+            row["session_duration_min"],
+            row["failed_attempts"],
+            int(row["device_change"]),
+            int(row["ip_change"]),
+            int(row["geo_anomaly"]),
+            row["access_count_10min"],
+            row["unique_endpoints_visited"],
+            int(row["vpn_used"])
+        ]])
 
     # Scaling
     X_scaled = scaler.transform(X)
