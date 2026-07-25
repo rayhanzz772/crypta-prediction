@@ -3,7 +3,7 @@ import logging
 from flask import Flask, request, jsonify
 from predict import predict_anomaly
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -16,11 +16,9 @@ def root():
 def predict():
 
     data = request.json
-    logger.info("/predict request json=%s", data)
+    logger.info("Incoming POST /predict request payload: %s", data)
 
     result = predict_anomaly(data)
-
-    logger.info("/predict response=%s", result)
     return jsonify(result)
 
 @app.route("/health")

@@ -1,8 +1,12 @@
 import logging
+import warnings
 from pathlib import Path
 
 import joblib
-import numpy as np
+import pandas as pd
+
+# Suppress warnings from scikit-learn
+warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +18,7 @@ SCALER_PATH = BASE_DIR / "model" / "feature_scaler.pkl"
 model = joblib.load(MODEL_PATH)
 scaler = joblib.load(SCALER_PATH)
 
-logger.info("loaded model=%s scaler=%s", MODEL_PATH, SCALER_PATH)
+logger.info("Loaded model and scaler successfully")
 
 
 # =========================
@@ -134,27 +138,24 @@ def predict_anomaly(features):
 
     row = features
 
-    logger.info("predict_anomaly input=%s", row)
-
-    X = np.array([[
-        row["login_hour"],
-        row["day_of_week"],
-        row["session_duration_min"],
-        row["failed_attempts"],
-        int(row["device_change"]),
-        int(row["ip_change"]),
-        int(row["geo_anomaly"]),
-        row["access_count_10min"],
-        row["unique_endpoints_visited"],
-        int(row["vpn_used"])
-    ]])
+    X = pd.DataFrame([{
+        "login_hour": row["login_hour"],
+        "day_of_week": row["day_of_week"],
+        "session_duration_min": row["session_duration_min"],
+        "failed_attempts": row["failed_attempts"],
+        "device_change": int(row["device_change"]),
+        "ip_change": int(row["ip_change"]),
+        "geo_anomaly": int(row["geo_anomaly"]),
+        "access_count_10min": row["access_count_10min"],
+        "unique_endpoints_visited": row["unique_endpoints_visited"],
+        "vpn_used": int(row["vpn_used"])
+    }])
 
     # Scaling
     X_scaled = scaler.transform(X)
 
     # ML Prediction
     ml_score = model.decision_function(X_scaled)[0]
-    ml_pred = model.predict(X_scaled)[0]
 
     # Normalize ML score
     ml_score_norm = (ml_score + 0.5) / 1.0
@@ -166,12 +167,22 @@ def predict_anomaly(features):
     # Hybrid score
     final_score = hybrid_score(ml_score_norm, rule_score)
 
-    # Risk level
+    # Status & Risk level
+    status = "ANOMALI" if final_score >= 0.5 else "NORMAL"
     risk_level = final_risk(final_score)
 
     logger.info(
-        "predict_anomaly output status=%s risk_level=%s score=%.12f rule_score=%s ml_score=%.12f ml_score_norm=%.12f",
-        "ANOMALI" if ml_pred == -1 else "NORMAL",
+        "\n"
+        "==============================================================\n"
+        "                      PREDICTION RESULT                       \n"
+        "==============================================================\n"
+        "  Status       : %s\n"
+        "  Risk Level   : %s\n"
+        "  Final Score  : %.4f\n"
+        "  Rule Score   : %d / 20\n"
+        "  ML Score     : %.4f (Norm: %.4f)\n"
+        "==============================================================",
+        status,
         risk_level,
         final_score,
         rule_score,
@@ -180,9 +191,9 @@ def predict_anomaly(features):
     )
 
     return {
-        "status": "ANOMALI" if ml_pred == -1 else "NORMAL",
+        "status": status,
         "risk_level": risk_level,
-        "score": float(final_score),
+        "score": round(float(final_score), 4),
         "rule_score": int(rule_score),
-        "ml_score": float(ml_score)
+        "ml_score": round(float(ml_score), 4)
     }
