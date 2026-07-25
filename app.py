@@ -12,11 +12,25 @@ app = Flask(__name__)
 def root():
     return {"status": "ok"}
 
+def format_request_payload(data):
+    if not isinstance(data, dict):
+        return str(data)
+    lines = [
+        "\n==============================================================",
+        "                    INCOMING PREDICT REQUEST                  ",
+        "=============================================================="
+    ]
+    for key, val in data.items():
+        label = key.replace("_", " ").title()
+        lines.append(f"  {label:<26} : {val}")
+    lines.append("==============================================================")
+    return "\n".join(lines)
+
 @app.route("/predict", methods=["POST"])
 def predict():
 
     data = request.json
-    logger.info("Incoming POST /predict request payload: %s", data)
+    logger.info(format_request_payload(data))
 
     result = predict_anomaly(data)
     return jsonify(result)

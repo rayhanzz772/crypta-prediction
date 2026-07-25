@@ -138,6 +138,80 @@ def final_risk(score):
 
 
 # =========================
+# Explanation Helper
+# =========================
+def get_prediction_explanation(row, rule_score, ml_score, final_score, status, risk_level):
+    reasons = []
+
+    # Check Brute Force
+    bf_pts = recursive_brute_force_score(row.get("failed_attempts", 0))
+    if bf_pts > 0:
+        reasons.append(f"High failed login attempts ({row.get('failed_attempts')}x attempts, +{bf_pts} pts)")
+
+    # Login hour
+    if 0 <= row.get("login_hour", -1) <= 4:
+        reasons.append(f"Late night / early morning login ({row.get('login_hour')}:00, +1 pt)")
+
+    # Device change
+    if row.get("device_change"):
+        reasons.append("Device change detected (+1 pt)")
+
+    # IP change
+    if row.get("ip_change"):
+        reasons.append("IP address change detected (+1 pt)")
+
+    # Geo anomaly
+    if row.get("geo_anomaly"):
+        reasons.append("Geographical location anomaly detected (+2 pts)")
+
+    # Access spike
+    acc = row.get("access_count_10min", 0)
+    if acc >= 25:
+        reasons.append(f"Extreme access spike ({acc} req/10min, +2 pts)")
+    elif acc >= 15:
+        reasons.append(f"Access spike ({acc} req/10min, +1 pt)")
+
+    # Session duration
+    dur = row.get("session_duration_min", 0)
+    if dur >= 300:
+        reasons.append(f"Extremely long session duration ({dur} min, +2 pts)")
+    elif dur >= 180:
+        reasons.append(f"Long session duration ({dur} min, +1 pt)")
+
+    # Endpoint exploration
+    ep = row.get("unique_endpoints_visited", 0)
+    if ep >= 40:
+        reasons.append(f"High endpoint scanning ({ep} endpoints, +2 pts)")
+    elif ep >= 20:
+        reasons.append(f"Endpoint exploration ({ep} endpoints, +1 pt)")
+
+    # VPN
+    if row.get("vpn_used"):
+        reasons.append("VPN usage detected (+1 pt)")
+
+    # Extreme combos
+    if row.get("failed_attempts", 0) >= 5 and row.get("access_count_10min", 0) >= 20:
+        reasons.append("Extreme Combo: Failed attempts + Access spike (+2 pts)")
+
+    if row.get("vpn_used") and row.get("geo_anomaly"):
+        reasons.append("Extreme Combo: VPN + Geo anomaly (+2 pts)")
+
+    # ML Score indicator
+    if ml_score < 0:
+        reasons.append(f"ML Model (Isolation Forest) detected unusual pattern (ML Score: {ml_score:.4f})")
+
+    if not reasons:
+        reasons.append("All behavior indicators are within normal baseline")
+
+    summary_text = (
+        f"Final score ({final_score:.4f}) is derived from Rule Score ({rule_score}/20) "
+        f"and ML Score ({ml_score:.4f}). Status: {status}, Risk Level: {risk_level}."
+    )
+
+    return reasons, summary_text
+
+
+# =========================
 # Prediction Pipeline
 # =========================
 def predict_anomaly(features):
@@ -191,6 +265,11 @@ def predict_anomaly(features):
     status = "ANOMALI" if final_score >= 0.5 else "NORMAL"
     risk_level = final_risk(final_score)
 
+    # Explanations
+    reasons, summary_text = get_prediction_explanation(row, rule_score, ml_score, final_score, status, risk_level)
+
+    explanation_lines = "\n".join([f"  * {r}" for r in reasons])
+
     logger.info(
         "\n"
         "==============================================================\n"
@@ -201,6 +280,11 @@ def predict_anomaly(features):
         "  Final Score  : %.4f\n"
         "  Rule Score   : %d / 20\n"
         "  ML Score     : %.4f (Norm: %.4f)\n"
+        "--------------------------------------------------------------\n"
+        "  [ EXPLANATION / TRIGGERED FACTORS ]\n"
+        "%s\n"
+        "--------------------------------------------------------------\n"
+        "  Summary      : %s\n"
         "==============================================================",
         status,
         risk_level,
@@ -208,6 +292,8 @@ def predict_anomaly(features):
         rule_score,
         ml_score,
         ml_score_norm,
+        explanation_lines,
+        summary_text,
     )
 
     return {
@@ -215,5 +301,7 @@ def predict_anomaly(features):
         "risk_level": risk_level,
         "score": round(float(final_score), 4),
         "rule_score": int(rule_score),
-        "ml_score": round(float(ml_score), 4)
+        "ml_score": round(float(ml_score), 4),
+        "reasons": reasons,
+        "explanation": summary_text
     }
